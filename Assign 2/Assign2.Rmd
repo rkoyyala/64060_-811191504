@@ -1,0 +1,137 @@
+---
+title: "Assignment- 2"
+author: "Rohith chandra koyyala"
+date: "20/02/2022"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(readr)
+library(caret)
+library(class)
+```
+
+```{r}
+universalbankdata <- read.csv("C:/Users/kramr/Documents/R/Assign 2/UniversalBank.csv", sep = ',', fill = F, strip.white = T)
+```
+
+
+```{r}
+universalbankdata
+colnames(universalbankdata)<-c('ID', 'Age','Experience','Income','ZIP Code','Family','CCAvg','Education','Mortgage','Personal.Loan','Securities.Account','CD.Account','Online','CreditCard')
+summary(universalbankdata)
+# Data is shown below
+```
+```{r}
+# Unwanted data is taken out.
+universalbankdata$ID <-NULL
+universalbankdata$`ZIP Code` <-NULL
+```
+
+```{r}
+# Factorisation is done below
+universalbankdata$`Personal.Loan`= as.factor(universalbankdata$`Personal.Loan`)
+```
+
+```{r}
+# After removing unwanted data and factorisation
+summary(universalbankdata)
+```
+
+```{r}
+# Dummies are created 
+dummie <- dummyVars(Personal.Loan ~ ., data = universalbankdata)
+
+universalbankdata_dummy=as.data.frame(predict(dummie,newdata = universalbankdata))
+
+head(universalbankdata_dummy)
+```
+```{r}
+# Normalisation is done here
+Normal_model <- preProcess(universalbankdata_dummy, method = c("center", "scale"))
+
+universalbankdata_norm=predict(Normal_model,universalbankdata_dummy)
+summary(universalbankdata_norm)
+
+universalbankdata_norm$Personal.Loan = universalbankdata$Personal.Loan
+
+Train_Index = createDataPartition(universalbankdata$Personal.Loan,p=0.6, list=FALSE)
+Train.df=universalbankdata_norm[Train_Index,]
+Validation.df=universalbankdata_norm[-Train_Index,] 
+
+```
+
+```{r}
+#Task- 1
+
+To_Predict=data.frame(Age = 40, Experience = 10, Income = 84, Family = 2, CCAvg = 2, Education= 1,Mortgage = 0, Securities.Account = 0, CD.Account = 0, Online = 1,CreditCard = 1)
+
+print(To_Predict)
+
+To_Predict_norm<-predict(Normal_model,To_Predict)
+
+print(To_Predict_norm)
+
+Prediction <-knn(train=Train.df[,1:7,9:12], 
+                 test=To_Predict_norm[,1:7,9:12],
+                 cl=Train.df$Personal.Loan,
+                 k=1)
+
+print(Prediction)
+
+```
+```{r}
+#Task- 2
+
+fitControl <- trainControl(method = "repeatedcv",
+                           number = 3,
+                           repeats = 2)
+searchGrid=expand.grid(k = 1:10)
+
+Knn.model=train(Personal.Loan~., 
+                data=Train.df,
+                method='knn',
+                tuneGrid=searchGrid,
+                trControl = fitControl,)
+Knn.model
+```
+
+```{r}
+#Task- 3
+
+predictions<-predict(Knn.model,Validation.df)
+confusionMatrix(predictions,Validation.df$Personal.Loan)
+```
+
+```{r}
+#Task- 4
+
+To_Predict=data.frame(Age=40,Experience = 10, Income = 84, Family = 2, CCAvg = 2, Education = 0, Mortgage = 0, Securities.Account = 0, CD.Account = 0, Online = 1, CreditCard = 1)
+
+To_Predict_norm=predict(Normal_model,To_Predict)
+predict(Knn.model,To_Predict_norm)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
