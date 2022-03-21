@@ -1,0 +1,106 @@
+---
+title: "Assignment4"
+author: "Rohith chandra koyyala"
+date: "20/03/2022"
+output:
+  html_document:
+    df_print: paged
+---
+loading data and installing libraries
+```{r}
+Pharmadataset<- read.csv("C:/Users/kramr/Desktop/Pharmaceuticals.csv", header = TRUE)
+str(Pharmadataset)
+library(tidyverse)
+library(factoextra)
+library(cluster)
+library(ggplot2)
+library(gridExtra)
+```
+removing the missing value which might be present in the data set
+```{r}
+Pharmadataset <- na.omit(Pharmadataset)
+```
+accumelating all numerical variables from column 1 to column 9 so that we can cluster all 21 companies
+```{r}
+row.names(Pharmadataset)<- Pharmadataset[,1]
+P<- Pharmadataset[, 3:11]
+head(P)
+```
+scaling the given data using scale function
+```{r}
+dataframe<- scale(P)
+head(dataframe)
+```
+implementing K means clustering in R for differenet center points
+we are going to use multiple values of K and examine the differences in the results
+```{r}
+kmeans <- kmeans(dataframe, centers = 2, nstart = 30)
+kmeans1<- kmeans(dataframe, centers = 5, nstart = 30)
+kmeans2<- kmeans(dataframe, centers = 6, nstart = 30)
+Plot1<-fviz_cluster(kmeans, data = dataframe)+ggtitle("k=2")
+plot2<-fviz_cluster(kmeans1, data = dataframe)+ggtitle("k=5")
+plot3<-fviz_cluster(kmeans2, data = dataframe)+ggtitle("k=6")
+grid.arrange(Plot1,plot2,plot3, nrow = 2)
+```
+trying to determine maximum clustering using elbow method
+```{r}
+dist1<- dist(dataframe, method = "euclidean")# for calculating distance matrix between rows of a data matrix.
+fviz_dist(dist1)# Visualizing a distance matrix
+```
+
+foe every k, calculate the total within cluster sum of square (wss)
+competing and plotting within cluster sum of sqaures fpr k=1 tp k=10
+extract wss for 2-25 clusters
+the location of the knee in the plot is generally considered as an indicator of the approoriate number of the cluster k= 5
+```{r}
+set.seed(123)
+wss<- function(k){
+  kmeans(dataframe, k, nstart =10)$tot.withinss
+}
+k.values<- 1:10 
+wss_clusters<- map_dbl(k.values, wss)
+plot(k.values, wss_clusters,
+ type="b", pch = 16, frame = TRUE, 
+xlab="Number of clusters",
+ylab="Total within-clusters sum of squares")
+```
+final analysis to extract results using 5 cluters and visuals
+```{r}
+set.seed(123)
+final<- kmeans(dataframe, 5, nstart = 25)
+print(final)
+fviz_cluster(final, data = dataframe)
+P%>%
+  mutate(Cluster = final$cluster) %>%
+  group_by(Cluster)%>% summarise_all("mean")
+clusplot(dataframe,final$cluster, color = TRUE, labels = 2,lines = 0)
+```
+b. interpreting clusters with respect to numerical variable used in clustering
+Cluster1 - AHM,SGP,WYE,BMY,AZN, ABT, NVS, LLY
+Cluster2 - BAY, CHTT, IVX
+Cluster3 - AGN, PHA
+Cluster4 - JNJ, MRK, PFE,GSK
+Cluster5 - WPI, MRX,ELN,AVE
+```{r}
+ClusterFormed<- Pharmadataset[,c(12,13,14)]%>% mutate(clusters = final$cluster)%>% arrange(clusters, ascending = TRUE)
+ClusterFormed
+```
+c) is there a pattern in the cluster with respect to numerical variable (10 to 12)?
+```{r, message=FALSE, warning=FALSE, fig.width=10}
+p1<-ggplot(ClusterFormed, mapping = aes(factor(clusters), fill=Median_Recommendation))+geom_bar(position = 'dodge')+labs(x ='Number of clusters')
+p2<- ggplot(ClusterFormed, mapping = aes(factor(clusters),fill = Location))+geom_bar(position = 'dodge')+labs(x ='Number of clusters')
+p3<- ggplot(ClusterFormed, mapping = aes(factor(clusters),fill = Exchange))+geom_bar(position = 'dodge')+labs(x ='Number of clusters')
+grid.arrange(p1,p2,p3) 
+```
+As per graph shown above, Cluster1 Suggests to Hold to Moderate Sell
+Cluster2 Suggests to Hold 
+Cluster3 Suggests to Hold to Moderate Buy
+Cluster4 suggests to Hold to Moderate Buy
+Cluster5 suggests to Moderate Buy to Moderate Sell
+
+d) giving names to each cluster: 
+Cluster1- Sell Cluster,
+Cluster2- Hold Cluster,
+Cluster3- Buy Cluster,
+Cluster4- High Buy Cluster,
+Cluster5- Buy Sell Cluster,
