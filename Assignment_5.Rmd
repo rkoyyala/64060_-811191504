@@ -1,0 +1,194 @@
+---
+title: "Assignment_5"
+author: "Rohith chandra koyyala"
+date: "17/04/2022"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+importing libraries
+
+```{r}
+library(cluster)
+library(caret)
+library(dendextend)
+library(knitr)
+library(factoextra)
+library(readr)
+```
+
+importing the data set
+
+```{r}
+Cereals <- read_csv("C:/Users/kramr/Downloads/Cereals.csv", col_types = cols(calories = col_number(), protein = col_number(), fat = col_number(), sodium = col_number(), fiber = col_number(), carbo = col_number(), sugars = col_number(), potass = col_number(), vitamins = col_number(), shelf = col_number(), weight = col_number(), cups = col_number(), rating = col_number()))
+data_df <- data.frame(Cereals[,4:16])
+```
+
+processing the given data set and removing all the cereals with missing values. normalizing of the data is also done.
+
+```{r}
+data_df <- na.omit(data_df)
+data_df_scaled <- scale(data_df)
+summary(data_df_scaled)
+```
+
+now we are going to calculate the dissmiliarity matrix and after that we are going to perform Hierarchical Clustering using hclust().
+
+```{r}
+d <- dist(data_df_scaled, method = "euclidean")
+```
+
+Perform Hierarchical Clustering using complete linkage
+
+```{r}
+hc1_complete <- hclust(d, method = "complete")
+```
+
+plotting dendogram
+
+```{r}
+plot(hc1_complete, cex = 0.6, hang = -1)
+```
+
+Clustering can also be done with the agnes() method.
+The sole contrast between agnes() and hclust() is that agnes includes an agglomerative coefficient. This coefficient shows if the clustering structure is robust or weak.
+
+Performing clustering using agnes() with single, complete, average and ward.
+
+```{r}
+hc_single <- agnes(data_df_scaled, method = "single")
+hc_complete <- agnes(data_df_scaled, method = "complete")
+hc_average <- agnes(data_df_scaled, method = "average")
+hc_ward <- agnes(data_df_scaled, method = "ward")
+```
+
+In Hierarchical clustering we have ward.D and ward.D2.
+The only difference between ward. D & ward. D2 is the input parameter. The Ward2 criterion values are “on a scale of distances” whereas the Ward1 criterion values are “on a scale of distances squared.
+Now we will compare the agglomerative coefficients
+
+For Single
+
+```{r}
+print(hc_single$ac)
+```
+
+For complete
+
+```{r}
+print(hc_complete$ac)
+```
+For average
+
+```{r}
+print(hc_average$ac)
+```
+
+For Ward
+
+```{r}
+print(hc_ward$ac)
+```
+
+results indicate that wards is the best method with 0.904
+
+
+now we are going to plot agnes with wards method and cut the dendogram. we are going to take k=4, keeping distance in mind.
+
+```{r}
+pltree(hc_ward, cex = 0.6, hang = -1, main = "Dendrogram of agnes (Using Ward)")
+rect.hclust(hc_ward, k = 4, border = 1:4)
+cluster1 <- cutree(hc_ward, k=4)
+df2 <- as.data.frame(cbind(data_df_scaled,cluster1))
+```
+
+creating partition
+
+```{r}
+part_1 <- data_df[1:55,]
+part_2 <- data_df[56:74,]
+```
+
+now we are going toPerforming Hierarichal Clustering, plotting dendogram and then cutting the dendogram by taking k = 4.
+
+```{r}
+agnes_ward <- agnes(scale(part_1), method = "ward")
+agnes_average <- agnes(scale(part_1), method = "average")
+agnes_complete <- agnes(scale(part_1), method = "complete")
+agnes_single <- agnes(scale(part_1), method = "single")
+
+cbind(ward=agnes_ward$ac, average=agnes_average$ac, complete=agnes_complete$ac, 
+      single=agnes_single$ac)
+pltree(agnes_ward, cex = 0.6, hang = -1, main = "Dendogram of Agnes with Partitioned Data (Using Ward)")
+rect.hclust(agnes_ward, k = 3, border = 2:5)
+
+cut_2 <- cutree(agnes_ward, k = 4)
+```
+
+in the following step we are going to calculate centers.
+
+```{r}
+result <- as.data.frame(cbind(part_1, cut_2))
+result[result$cut_2==1,]
+center1 <- colMeans(result[result$cut_2==1,])
+
+result[result$cut_2==2,]
+center2 <- colMeans(result[result$cut_2==2,])
+
+result[result$cut_2==3,]
+center3 <- colMeans(result[result$cut_2==3,])
+
+result[result$cut_2==4,]
+center4 <- colMeans(result[result$cut_2==4,])
+
+centers <- rbind(center1, center2, center3, center4)
+
+x2 <- as.data.frame(rbind(centers[,-14], part_2))
+```
+
+in the following step we are going to calculate distence.
+
+```{r}
+d1 <- get_dist(x2)
+
+mat1 <- as.matrix(d1)
+
+df1 <- data.frame(data=seq(1,nrow(part_2),1), clusters = rep(0,nrow(part_2)))
+
+for(i in 1:nrow(part_2)) {
+  
+  df1[i,2] <- which.min(mat1[i+4, 1:4])
+}
+df1
+
+cbind(df2$cluster1[56:74], df1$clusters)
+table(df2$cluster1[56:74] == df1$clusters)
+```
+
+now we can conclude that this model is not stable as 12 out of 19 are false.
+
+now we are going to cluster of healthy cereals.
+
+```{r}
+new_data <- Cereals
+new_data_na <- na.omit(new_data)
+
+Clust <- cbind(new_data_na, cluster1)
+
+Clust[Clust$cluster1==1,]
+Clust[Clust$cluster1==2,]
+Clust[Clust$cluster1==3,]
+Clust[Clust$cluster1==4,]
+```
+
+now we are going to calculate mean rating so that we can find out the best cereal.
+
+```{r}
+mean(Clust[Clust$cluster1==1,"rating"])
+mean(Clust[Clust$cluster1==2,"rating"])
+mean(Clust[Clust$cluster1==3,"rating"])
+mean(Clust[Clust$cluster1==4,"rating"])
+```
+
+from the above readings we can conclude that cluster 1 is the best cereal as it has highest rating. 
